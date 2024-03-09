@@ -1,33 +1,29 @@
 import gradio as gr
-from transformers import ViltProcessor, ViltForQuestionAnswering
+from transformers import UdopProcessor, UdopForConditionalGeneration
 import torch
 
 torch.hub.download_url_to_file('http://images.cocodataset.org/val2017/000000039769.jpg', 'cats.jpg')
 
-processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
-model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+repo_id = "microsoft/udop-large"
+processor = UdopProcessor.from_pretrained(repo_id)
+model = UdopForConditionalGeneration.from_pretrained(repo_id)
 
-def answer_question(image, text):
-    encoding = processor(image, text, return_tensors="pt")
-    
-    # forward pass
-    with torch.no_grad():
-     outputs = model(**encoding)
-     
-    logits = outputs.logits
-    idx = logits.argmax(-1).item()
-    predicted_answer = model.config.id2label[idx]
+
+def answer_question(img, user_query):
+    encoding = processor(images=img, text=user_query, return_tensors="pt")
+    outputs = model.generate(**encoding, max_new_tokens=20)
+    generated_text = processor.batch_decode(outputs, skip_special_tokens=True)[0]
    
-    return predicted_answer
+    return generated_text
    
 image = gr.Image(type="pil")
 question = gr.Textbox(label="Question")
 answer = gr.Textbox(label="Predicted answer")
 examples = [["cats.jpg", "How many cats are there?"]]
 
-title = "Interactive demo: ViLT"
-description = "Gradio Demo for ViLT (Vision and Language Transformer), fine-tuned on VQAv2, a model that can answer questions from images. To use it, simply upload your image and type a question and click 'submit', or click one of the examples to load them. Read more at the links below."
-article = "<p style='text-align: center'><a href='https://arxiv.org/abs/2102.03334' target='_blank'>ViLT: Vision-and-Language Transformer Without Convolution or Region Supervision</a> | <a href='https://github.com/dandelin/ViLT' target='_blank'>Github Repo</a></p>"
+title = "Interactive demo: UDOP"
+description = "Gradio Demo for UDOP, a model that can answer questions from images/pdfs. To use it, simply upload your image or pdf and type a question and click 'submit', or click one of the examples to load them. Read more at the links below."
+tochange_article = "<p style='text-align: center'><a href='https://arxiv.org/abs/2212.02623' target='_blank'>Unifying Vision, Text, and Layout for Universal Document Processing</a> | <a href='https://github.com/microsoft/UDOP' target='_blank'>Github Repo</a></p>"
 
 interface = gr.Interface(fn=answer_question, 
                          inputs=[image, question], 
@@ -35,5 +31,5 @@ interface = gr.Interface(fn=answer_question,
                          examples=examples, 
                          title=title,
                          description=description,
-                         article=article)
+                         article=tochange_article)
 interface.launch(debug=True)
